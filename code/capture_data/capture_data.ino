@@ -6,6 +6,28 @@ unsigned long a=1;
 
 #define BUF_LENGTH 512
 
+#define NOTE_e  329.63
+#define NOTE_B  246.94
+#define NOTE_G  196.00
+#define NOTE_D  146.82
+#define NOTE_A  110.00
+#define NOTE_E  82.41
+
+#define MAX_DEVIATION 10
+
+#define NOTE_e_MAX NOTE_e * (100 + MAX_DEVIATION) / 100
+#define NOTE_e_MIN NOTE_e * (100 - MAX_DEVIATION) / 100
+#define NOTE_B_MAX NOTE_B * (100 + MAX_DEVIATION) / 100
+#define NOTE_B_MIN NOTE_B * (100 - MAX_DEVIATION) / 100
+#define NOTE_G_MAX NOTE_G * (100 + MAX_DEVIATION) / 100
+#define NOTE_G_MIN NOTE_G * (100 - MAX_DEVIATION) / 100
+#define NOTE_D_MAX NOTE_D * (100 + MAX_DEVIATION) / 100
+#define NOTE_D_MIN NOTE_D * (100 - MAX_DEVIATION) / 100
+#define NOTE_A_MAX NOTE_A * (100 + MAX_DEVIATION) / 100
+#define NOTE_A_MIN NOTE_A * (100 - MAX_DEVIATION) / 100
+#define NOTE_E_MAX NOTE_E * (100 + MAX_DEVIATION) / 100
+#define NOTE_E_MIN NOTE_E * (100 - MAX_DEVIATION) / 100
+
 #define BUTTON_S1 1
 #define BUTTON_S2 2
 #define BUTTON_S3 4
@@ -76,36 +98,68 @@ ISR(ADC_vect) {//when new ADC value ready
   
 }
 
+float maxFreq;
+float minFreq;
+char indicatorBuffer[10];
 
 void loop(){
 
-  byte keys = module.getButtons();
+  menu();
+ 
+  delay(100);
+  
+}
+
+void menu() {
+    byte keys = module.getButtons();
   word leds = 0;
 
   if (keys & BUTTON_S1) {
+    maxFreq = NOTE_e_MAX;
+    minFreq = NOTE_e_MIN;
+    
     leds |= LED_MASK_S1;
   } else if (keys & BUTTON_S2) {
+    maxFreq = NOTE_B_MAX;
+    minFreq = NOTE_B_MIN;
+
     leds |= LED_MASK_S2;
   } else if (keys & BUTTON_S3) {
+    maxFreq = NOTE_G_MAX;
+    minFreq = NOTE_G_MIN;
+
     leds |= LED_MASK_S3;
   } else if (keys & BUTTON_S4) {
+    maxFreq = NOTE_D_MAX;
+    minFreq = NOTE_D_MIN;
+
     leds |= LED_MASK_S4;
   } else if (keys & BUTTON_S5) {
+    maxFreq = NOTE_A_MAX;
+    minFreq = NOTE_A_MIN;
+
     leds |= LED_MASK_S5;
   } else if (keys & BUTTON_S6) {
+    maxFreq = NOTE_E_MAX;
+    minFreq = NOTE_E_MIN;
+
     leds |= LED_MASK_S6;
   }
 
   if (leds != 0) {
     module.setLEDs(leds);
+
+    dtostrf(maxFreq, 3, 0, indicatorBuffer);
+    dtostrf(minFreq, 3, 0, indicatorBuffer + 5);
+    indicatorBuffer[3] = ' ';
+    indicatorBuffer[4] = ' ';
+    
+
+    module.setDisplayToString(indicatorBuffer);
+
   }
 
-  module.setDisplayToDecNumber(leds,0,false);
-  
-  delay(100);
-  
 }
-
 
 //int i,k;
 //long sum, sum_old;

@@ -6,6 +6,27 @@ unsigned long a=1;
 
 #define BUF_LENGTH 512
 
+#define BUTTON_S1 1
+#define BUTTON_S2 2
+#define BUTTON_S3 4
+#define BUTTON_S4 8
+#define BUTTON_S5 16
+#define BUTTON_S6 32
+
+#define LED_BIT_S1 0
+#define LED_BIT_S2 1
+#define LED_BIT_S3 2
+#define LED_BIT_S4 3
+#define LED_BIT_S5 4
+#define LED_BIT_S6 5
+
+#define LED_MASK_S1 1
+#define LED_MASK_S2 2
+#define LED_MASK_S3 4
+#define LED_MASK_S4 8
+#define LED_MASK_S5 16
+#define LED_MASK_S6 32
+
 //data storage variables
 byte dataBuffer[BUF_LENGTH];
 int index = 0;//current storage index
@@ -33,6 +54,8 @@ void setup(){
   ADCSRA |= (1 << ADSC); //start ADC measurements
   
   sei();//enable interrupts
+
+  module.setLEDs(0); //switch off all LEDs
 }
 
 ISR(ADC_vect) {//when new ADC value ready
@@ -49,21 +72,37 @@ ISR(ADC_vect) {//when new ADC value ready
       ready = 1;
     }
   }
+
   
 }
 
-int i = 0;
 
 void loop(){
 
+  byte keys = module.getButtons();
+  word leds = 0;
 
-  module.setLED(TM1638_COLOR_RED, 1);
-  module.setLED(TM1638_COLOR_RED, 4);
+  if (keys & BUTTON_S1) {
+    leds |= LED_MASK_S1;
+  } else if (keys & BUTTON_S2) {
+    leds |= LED_MASK_S2;
+  } else if (keys & BUTTON_S3) {
+    leds |= LED_MASK_S3;
+  } else if (keys & BUTTON_S4) {
+    leds |= LED_MASK_S4;
+  } else if (keys & BUTTON_S5) {
+    leds |= LED_MASK_S5;
+  } else if (keys & BUTTON_S6) {
+    leds |= LED_MASK_S6;
+  }
 
-  i = module.getButtons();
+  if (leds != 0) {
+    module.setLEDs(leds);
+  }
+
+  module.setDisplayToDecNumber(leds,0,false);
   
-  module.setDisplayToDecNumber(i,0,false);
-  delay(1000);
+  delay(100);
   
 }
 

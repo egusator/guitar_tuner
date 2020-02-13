@@ -49,12 +49,25 @@ unsigned long a=1;
 #define LED_MASK_S5 16
 #define LED_MASK_S6 32
 
+#define STEP_MOTOR_ENABLE_PIN 4
+#define STEP_MOTOR_PULSE_PIN 3
+#define STEP_MOTOR_DIR_PIN 2
+
+#define STEP_MOTOR_ON 1
+#define STEP_MOTOR_OFF 0
+#define STEP_MOTOR_RIGHT 0
+#define STEP_MOTOR_LEFT 1
+
 //data storage variables
 byte dataBuffer[BUF_LENGTH];
 int index = 0;//current storage index
 byte ready = 0;
 
 void setup(){
+
+  pinMode(STEP_MOTOR_ENABLE_PIN, OUTPUT);
+  pinMode(STEP_MOTOR_PULSE_PIN, OUTPUT);
+  pinMode(STEP_MOTOR_DIR_PIN, OUTPUT);
   
   Serial.begin(9600);
   
@@ -104,9 +117,29 @@ char indicatorBuffer[10];
 
 void loop(){
 
-  menu();
- 
-  delay(100);
+  digitalWrite(STEP_MOTOR_ENABLE_PIN, STEP_MOTOR_ON);
+
+  digitalWrite(STEP_MOTOR_DIR_PIN, STEP_MOTOR_RIGHT);
+
+  for (int i = 0; i < 500; i++) {
+    digitalWrite(STEP_MOTOR_PULSE_PIN, STEP_MOTOR_ON);
+    delay(1);
+    digitalWrite(STEP_MOTOR_PULSE_PIN, STEP_MOTOR_OFF);
+    delay(1);
+  }
+
+  digitalWrite(STEP_MOTOR_DIR_PIN, STEP_MOTOR_LEFT);
+
+  for (int i = 0; i < 500; i++) {
+    digitalWrite(STEP_MOTOR_PULSE_PIN, STEP_MOTOR_ON);
+    delay(1);
+    digitalWrite(STEP_MOTOR_PULSE_PIN, STEP_MOTOR_OFF);
+    delay(1);
+  }
+
+//  menu();
+// 
+//  delay(100);
   
 }
 

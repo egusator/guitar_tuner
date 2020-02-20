@@ -79,6 +79,8 @@ unsigned long a=1;
 #define ON                      1
 #define OFF                     0
 
+#define TICK_INTERVAL           100
+
 //data storage variables
 byte dataBuffer[BUF_LENGTH];
 int index = 0;//current storage index
@@ -139,14 +141,32 @@ byte state;
 byte keys, oldKeys;
 word leds = 0;
 
+unsigned long prevMillis = 0, currMillis = TICK_INTERVAL;
+
+#define FLASH_TIME    20
+
+#define ALL_LEDS_ON   0xff
+
+byte flashTimer = 0;
+
 void loop(){
-
-
-  menu();
- 
-  delay(100);
+  currMillis = millis();
   
+  if (prevMillis - currMillis > TICK_INTERVAL) {
+    prevMillis = currMillis;
+
+    if (flashTimer == 0) {
+      module.setLEDs(ALL_LEDS_ON);
+      
+      flashTimer++;
+    } else if (flashTimer < FLASH_TIME) {
+      flashTimer++;
+    } else {
+      menu();
+    }
+  }
 }
+
 
 void menu() {
   boolean edit = false;

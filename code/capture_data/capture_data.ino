@@ -130,6 +130,7 @@ ISR(ADC_vect) {//when new ADC value ready
       ready = 1;
     }
   }
+  
 }
 
 float maxFreq;
@@ -141,25 +142,31 @@ byte state;
 byte keys, oldKeys;
 word leds = 0;
 
-unsigned long prevMillis = 0, currMillis = TICK_INTERVAL;
+unsigned long prevMillis = 0, currMillis = 0;
 
-#define FLASH_TIME    20
+#define FLASH_TIME    10
 
 #define ALL_LEDS_ON   0xff
+#define ALL_LEDS_OFF  0
 
 byte flashTimer = 0;
 
 void loop(){
   currMillis = millis();
   
-  if (prevMillis - currMillis > TICK_INTERVAL) {
+  if (currMillis - prevMillis > TICK_INTERVAL) {
     prevMillis = currMillis;
 
     if (flashTimer == 0) {
       module.setLEDs(ALL_LEDS_ON);
+      module.setDisplayToString("88888888", ALL_LEDS_ON);
       
       flashTimer++;
     } else if (flashTimer < FLASH_TIME) {
+      flashTimer++;
+    } else if(flashTimer == FLASH_TIME) {
+      module.setLEDs(ALL_LEDS_OFF);
+      module.setDisplayToString("        ", ALL_LEDS_OFF);
       flashTimer++;
     } else {
       menu();

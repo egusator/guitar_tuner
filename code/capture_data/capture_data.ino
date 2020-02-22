@@ -8,6 +8,7 @@ unsigned long a=1;
 
 #define BUF_LENGTH              512
 #define MIN_MAX_START_DIFF      150
+#define FREQ_DIFF_COEFF         10
 
 //Константы частот нот
 #define NOTE_e  329.63
@@ -72,12 +73,11 @@ unsigned long a=1;
 //Константы состояния сигналов шагового мотора
 #define STEP_MOTOR_ON           1
 #define STEP_MOTOR_OFF          0
-#define STEP_MOTOR_RIGHT        0
-#define STEP_MOTOR_LEFT         1
+#define STEP_MOTOR_FREQ_UP      0
+#define STEP_MOTOR_FREQ_DW      1
 
 //Биты состояния частей программы
-#define STATE_DIR_MESSAGES     1
-#define STATE_SHOW_FREQ        2
+#define STATE_SHOW_FREQ         1
 
 #define ON                      1
 #define OFF                     0
@@ -90,6 +90,31 @@ int index = 0;//current storage index
 byte ready = 0;
 
 byte maxAdc = 0, minAdc = 255;
+
+float maxFreq = 0;
+float minFreq = 0;
+float note = 0;
+
+char indicatorBuffer[10];
+
+boolean showFreq = true;
+
+byte keys, oldKeys;
+word leds = 0;
+
+unsigned long prevMillis = 0, currMillis = 0;
+
+#define FLASH_TIME    10
+
+#define ALL_LEDS_ON   0xff
+#define ALL_LEDS_OFF  0
+
+byte flashTimer = 0;
+
+boolean toggle1 = 0;
+word steps = 0;
+boolean turnCompleted = true;
+boolean invertDirection = false;
 
 void setup(){
 
@@ -161,36 +186,26 @@ ISR(ADC_vect) {//when new ADC value ready
   }
 }
 
-boolean toggle1 = 0;
-
 ISR(TIMER1_COMPA_vect) {//timer1 control of step motor
-  if (toggle1){
-    digitalWrite(STEP_MOTOR_PULSE_PIN, HIGH);
-    toggle1 = 0;
-  }
-  else{
-    digitalWrite(STEP_MOTOR_PULSE_PIN, LOW);
-    toggle1 = 1;
+  if (showFreq) {
+      digitalWrite(STEP_MOTOR_ENABLE_PIN, STEP_MOTOR_OFF);
+  } else {
+    if (steps != 0) {
+      if (toggle1) {
+        digitalWrite(STEP_MOTOR_PULSE_PIN, HIGH);
+        toggle1 = 0;
+  
+        steps--;
+      } else {
+        digitalWrite(STEP_MOTOR_PULSE_PIN, LOW);
+        toggle1 = 1;
+      }
+    } else {
+      digitalWrite(STEP_MOTOR_ENABLE_PIN, STEP_MOTOR_ON);
+      turnCompleted = true;
+    }
   }
 }
-
-float maxFreq;
-float minFreq;
-char indicatorBuffer[10];
-
-byte state = STATE_SHOW_FREQ;
-
-byte keys, oldKeys;
-word leds = 0;
-
-unsigned long prevMillis = 0, currMillis = 0;
-
-#define FLASH_TIME    10
-
-#define ALL_LEDS_ON   0xff
-#define ALL_LEDS_OFF  0
-
-byte flashTimer = 0;
 
 void loop(){
   currMillis = millis();
@@ -214,10 +229,7 @@ void loop(){
       calcFreq();
     }
   }
-
-  
 }
-
 
 void menu() {
   boolean edit = false;
@@ -225,74 +237,81 @@ void menu() {
   keys = module.getButtons();
   
   if (keys & BUTTON_S1) {
-    state &= ~STATE_SHOW_FREQ;
+    showFreq = false;
 
     maxFreq = NOTE_e_MAX;
     minFreq = NOTE_e_MIN;
+    note = NOTE_e;
     
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S1;
     edit = true;
   } else if (keys & BUTTON_S2) {
-    state &= ~STATE_SHOW_FREQ;
+    showFreq = false;
 
     maxFreq = NOTE_B_MAX;
     minFreq = NOTE_B_MIN;
+    note = NOTE_B;
 
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S2;
     edit = true;
   } else if (keys & BUTTON_S3) {
-    state &= ~STATE_SHOW_FREQ;
+    showFreq = false;
 
     maxFreq = NOTE_G_MAX;
     minFreq = NOTE_G_MIN;
+    note = NOTE_G;
 
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S3;
     edit = true;
   } else if (keys & BUTTON_S4) {
-    state &= ~STATE_SHOW_FREQ;
+    showFreq = false;
 
     maxFreq = NOTE_D_MAX;
     minFreq = NOTE_D_MIN;
+    note = NOTE_D;
 
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S4;
     edit = true;
   } else if (keys & BUTTON_S5) {
-    state &= ~STATE_SHOW_FREQ;
+    showFreq = false;
 
     maxFreq = NOTE_A_MAX;
     minFreq = NOTE_A_MIN;
+    note = NOTE_A;
 
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S5;
     edit = true;
   } else if (keys & BUTTON_S6) {
-    state &= ~STATE_SHOW_FREQ;
+    showFreq = false;
 
     maxFreq = NOTE_E_MAX;
     minFreq = NOTE_E_MIN;
+    note = NOTE_E;
 
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S6;
     edit = true;
   } else if (keys & BUTTON_FREQ) {
-    state |= STATE_SHOW_FREQ;
+    showFreq = true;
 
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_FREQ;
      edit = true;
  } else if ((keys & BUTTON_DIR) != 0 && (oldKeys & BUTTON_DIR) == 0) {
 
-    state ^= STATE_DIR_MESSAGES;
-
-    if (state & STATE_DIR_MESSAGES) {
-      leds |= LED_MASK_DIR;
-    } else {
+    if (invertDirection) {
+      invertDirection = false;
       leds &= ~LED_MASK_DIR;
+    } else {
+      invertDirection = true;
+      leds |= LED_MASK_DIR;
     }
+
     edit = true;
   }
 
@@ -311,27 +330,14 @@ void menu() {
 
 }
 
-void turnMotor () {
-  
+void turnMotor (word st, byte dir) {
+  cli();
   digitalWrite(STEP_MOTOR_ENABLE_PIN, STEP_MOTOR_ON);
+  digitalWrite(STEP_MOTOR_DIR_PIN, dir);
 
-  digitalWrite(STEP_MOTOR_DIR_PIN, STEP_MOTOR_RIGHT);
-
-  for (int i = 0; i < 500; i++) {
-    digitalWrite(STEP_MOTOR_PULSE_PIN, STEP_MOTOR_ON);
-    delay(1);
-    digitalWrite(STEP_MOTOR_PULSE_PIN, STEP_MOTOR_OFF);
-    delay(1);
-  }
-
-  digitalWrite(STEP_MOTOR_DIR_PIN, STEP_MOTOR_LEFT);
-
-  for (int i = 0; i < 500; i++) {
-    digitalWrite(STEP_MOTOR_PULSE_PIN, STEP_MOTOR_ON);
-    delay(1);
-    digitalWrite(STEP_MOTOR_PULSE_PIN, STEP_MOTOR_OFF);
-    delay(1);
-  }
+  turnCompleted = false;
+  steps = st;
+  sei();
 }
 
 void calcFreq() {
@@ -340,6 +346,8 @@ void calcFreq() {
   int thresh = 0;
   float freqPer = 0;
   byte pdState = 0;
+
+  word stps;
   
     if (ready == 1) {
   
@@ -380,6 +388,24 @@ void calcFreq() {
       }
       // Frequency identified in kHz
       freqPer = 38400/period;
+      
+      if (showFreq) {
+        module.setDisplayToDecNumber(freqPer,0,false);
+      } else {
+        if (freqPer > minFreq && freqPer < maxFreq ) { 
+          module.setDisplayToDecNumber(freqPer,0,false);
+          if (turnCompleted) {
+            if (freqPer > note) {
+              stps = (freqPer - note);
+              turnMotor(stps, STEP_MOTOR_FREQ_UP);
+            } else {
+              stps = (note - freqPer);
+              turnMotor(stps, STEP_MOTOR_FREQ_DW);
+            }
+          }
+        }
+      }
+      
       #ifdef USE_UART
         Serial.print(freqPer);
         Serial.print(" ");
@@ -389,12 +415,17 @@ void calcFreq() {
         Serial.print(" ");
         Serial.print(maxAdc);
         Serial.print(" ");
-        Serial.println(minAdc);
+        Serial.print(minAdc);
+        Serial.print(" ");
+        Serial.print(maxFreq);
+        Serial.print(" ");
+        Serial.print(minFreq);
+        Serial.print(" ");
+        Serial.print(note);
+        Serial.print(" ");
+        Serial.println(stps);
       #endif
-      
-      if (freqPer > 60 && freqPer < 350 ) { 
-        module.setDisplayToDecNumber(freqPer,0,false);
-      }
+
   
   //    if (freqPer > 1000 && freqPer < 8000) {
   //      

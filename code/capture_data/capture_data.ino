@@ -8,7 +8,8 @@ unsigned long a=1;
 
 #define BUF_LENGTH              512
 #define MIN_MAX_START_DIFF      150
-#define FREQ_DIFF_COEFF         10
+#define FREQ_DIFF_COEFF         3
+#define PROTECTION_PAUSE        50
 
 //Константы частот нот
 #define NOTE_e  329.63
@@ -113,6 +114,7 @@ byte flashTimer = 0;
 
 boolean toggle1 = 0;
 word steps = 0;
+word protectionPause = 0;
 boolean turnCompleted = true;
 boolean invertDirection = false;
 
@@ -200,9 +202,16 @@ ISR(TIMER1_COMPA_vect) {//timer1 control of step motor
         digitalWrite(STEP_MOTOR_PULSE_PIN, LOW);
         toggle1 = 1;
       }
+
+      protectionPause = PROTECTION_PAUSE;
     } else {
-      digitalWrite(STEP_MOTOR_ENABLE_PIN, STEP_MOTOR_ON);
-      turnCompleted = true;
+      digitalWrite(STEP_MOTOR_ENABLE_PIN, STEP_MOTOR_OFF);
+      
+      if (protectionPause != 0) {
+        protectionPause--;
+      } else {
+        turnCompleted = true;
+      }
     }
   }
 }
@@ -396,11 +405,19 @@ void calcFreq() {
           module.setDisplayToDecNumber(freqPer,0,false);
           if (turnCompleted) {
             if (freqPer > note) {
-              stps = (freqPer - note);
-              turnMotor(stps, STEP_MOTOR_FREQ_UP);
+              stps = (freqPer - note) * FREQ_DIFF_COEFF;
+              if (invertDirection) {
+                turnMotor(stps, STEP_MOTOR_FREQ_UP);
+              } else {
+                turnMotor(stps, STEP_MOTOR_FREQ_DW);
+              }
             } else {
-              stps = (note - freqPer);
-              turnMotor(stps, STEP_MOTOR_FREQ_DW);
+              stps = (note - freqPer) * FREQ_DIFF_COEFF;
+              if (invertDirection) {
+                turnMotor(stps, STEP_MOTOR_FREQ_DW);
+              } else {
+                turnMotor(stps, STEP_MOTOR_FREQ_UP);
+              }
             }
           }
         }
@@ -435,8 +452,10 @@ void calcFreq() {
   //      }
   //      Serial.println(" ");
   //    }
-      maxAdc = 0;
-      minAdc = 255;
-      ready = 0;
+          
+        maxAdc = 0;
+        minAdc = 255;
+        ready = 0;
+
     };
 }

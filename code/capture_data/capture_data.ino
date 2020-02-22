@@ -4,7 +4,10 @@
 TM1638 module(8, 9, 10);
 unsigned long a=1;
 
-#define BUF_LENGTH 512
+#define USE_UART
+
+#define BUF_LENGTH              512
+#define MIN_MAX_START_DIFF      150
 
 //Константы частот нот
 #define NOTE_e  329.63
@@ -86,13 +89,17 @@ byte dataBuffer[BUF_LENGTH];
 int index = 0;//current storage index
 byte ready = 0;
 
+byte maxAdc = 0, minAdc = 255;
+
 void setup(){
 
   pinMode(STEP_MOTOR_ENABLE_PIN, OUTPUT);
   pinMode(STEP_MOTOR_PULSE_PIN, OUTPUT);
   pinMode(STEP_MOTOR_DIR_PIN, OUTPUT);
-  
-  Serial.begin(9600);
+
+  #ifdef USE_UART
+    Serial.begin(9600);
+  #endif
   
   cli();//disable interrupts
   
@@ -110,6 +117,19 @@ void setup(){
   ADCSRA |= (1 << ADIE); //enable interrupts when measurement complete
   ADCSRA |= (1 << ADEN); //enable ADC
   ADCSRA |= (1 << ADSC); //start ADC measurements
+
+  //set timer1 interrupt at 1Hz
+  TCCR1A = 0;// set entire TCCR1A register to 0
+  TCCR1B = 0;// same for TCCR1B
+  TCNT1  = 0;//initialize counter value to 0
+  // set compare match register for 1hz increments
+  OCR1A = 156;// = (16*10^6) / (1*1024) - 1 (must be <65536)
+  // turn on CTC mode
+  TCCR1B |= (1 << WGM12);
+  // Set CS10 and CS12 bits for 1024 prescaler
+  TCCR1B |= (1 << CS12) | (1 << CS10);  
+  // enable timer compare interrupt
+  TIMSK1 |= (1 << OCIE1A);
   
   sei();//enable interrupts
 
@@ -121,16 +141,37 @@ ISR(ADC_vect) {//when new ADC value ready
   byte adc = ADCH;//get value from A0
   
   if (ready == 0) {
-    dataBuffer[index] = adc;
+    if (maxAdc < adc) {
+      maxAdc = adc;
+    }
 
-    index++;
-    
-    if (index == BUF_LENGTH) {
-      index = 0;
-      ready = 1;
+    if (minAdc > adc) {
+      minAdc = adc;
+    }
+    if ((maxAdc - minAdc) > MIN_MAX_START_DIFF) {
+      dataBuffer[index] = adc;
+  
+      index++;
+      
+      if (index == BUF_LENGTH) {
+        index = 0;
+        ready = 1;
+      }
     }
   }
-  
+}
+
+boolean toggle1 = 0;
+
+ISR(TIMER1_COMPA_vect) {//timer1 control of step motor
+  if (toggle1){
+    digitalWrite(STEP_MOTOR_PULSE_PIN, HIGH);
+    toggle1 = 0;
+  }
+  else{
+    digitalWrite(STEP_MOTOR_PULSE_PIN, LOW);
+    toggle1 = 1;
+  }
 }
 
 float maxFreq;
@@ -170,8 +211,11 @@ void loop(){
       flashTimer++;
     } else {
       menu();
+      calcFreq();
     }
   }
+
+  
 }
 
 
@@ -267,8 +311,7 @@ void menu() {
 
 }
 
-
-void turnTuner () {
+void turnMotor () {
   
   digitalWrite(STEP_MOTOR_ENABLE_PIN, STEP_MOTOR_ON);
 
@@ -291,73 +334,78 @@ void turnTuner () {
   }
 }
 
-
-//int i,k;
-//long sum, sum_old;
-//int thresh = 0;
-//float freq_per = 0;
-//byte pd_state = 0;
-//
-//  if (ready == 1) {
-//
-//    sum = 0;
-//    sum_old = 0;
-//    pd_state = 0;
-//    int period = 0;
-//    thresh = 0;
-//    freq_per = 0;
-//
-//    for(i=0; i < BUF_LENGTH; i++)
-//    {
-//      // Autocorrelation
-//      sum_old = sum;
-//      sum = 0;
-//      for(k=0; k < BUF_LENGTH-i; k++) sum += (dataBuffer[k]-128)*(dataBuffer[k+i]-128);
-//    /*  // RX8 [h=43] @1Key1 @0Key1
-//      Serial.print("C");
-//      Serial.write((rawData[i]-128)>>8);
-//      Serial.write((rawData[i]-128)&0xff); */
-//      
-//    /*  // RX8 [h=43] @1Key1 @0Key1
-//      Serial.print("C");
-//      Serial.write(sum>>8);
-//      Serial.write(sum&0xff); */
-//      
-//      // Peak Detect State Machine
-//      if (pd_state == 2 && (sum-sum_old) <= 0) 
-//      {
-//        period = i;
-//        pd_state = 3;
-//      }
-//      if (pd_state == 1 && (sum > thresh) && (sum-sum_old) > 0) pd_state = 2;
-//      if (!i) {
-//        thresh = sum * 0.5;
-//        pd_state = 1;
-//      }
-//    }
-//    // Frequency identified in kHz
-//    freq_per = 38400/period;
-//    Serial.print(freq_per);
-//    Serial.print(" ");
-//    Serial.print(period);
-//    Serial.print(" ");
-//    Serial.println(thresh);
-//
-//    
-//    if (freq_per > 60 && freq_per < 350 ) { 
-//      module.setDisplayToDecNumber(freq_per,0,false);
-//    }
-//
-////    if (freq_per > 1000 && freq_per < 8000) {
-////      
-////      for (int i = 0; i < BUF_LENGTH; i++) {
-////        Serial.print(dataBuffer[i]);
-////        Serial.print(", ");
-////      }
-////      Serial.println(" ");
-////    }
-//  
-//    ready = 0;
-//  };
-//  //delay(100);//delete this if you want
-//}
+void calcFreq() {
+  int i,k;
+  long sum, sumOld;
+  int thresh = 0;
+  float freqPer = 0;
+  byte pdState = 0;
+  
+    if (ready == 1) {
+  
+      sum = 0;
+      sumOld = 0;
+      pdState = 0;
+      int period = 0;
+      thresh = 0;
+      freqPer = 0;
+  
+      for(i=0; i < BUF_LENGTH; i++)
+      {
+        // Autocorrelation
+        sumOld = sum;
+        sum = 0;
+        for(k=0; k < BUF_LENGTH-i; k++) sum += (dataBuffer[k]-128)*(dataBuffer[k+i]-128);
+      /*  // RX8 [h=43] @1Key1 @0Key1
+        Serial.print("C");
+        Serial.write((rawData[i]-128)>>8);
+        Serial.write((rawData[i]-128)&0xff); */
+        
+      /*  // RX8 [h=43] @1Key1 @0Key1
+        Serial.print("C");
+        Serial.write(sum>>8);
+        Serial.write(sum&0xff); */
+        
+        // Peak Detect State Machine
+        if (pdState == 2 && (sum-sumOld) <= 0) 
+        {
+          period = i;
+          pdState = 3;
+        }
+        if (pdState == 1 && (sum > thresh) && (sum-sumOld) > 0) pdState = 2;
+        if (!i) {
+          thresh = sum * 0.5;
+          pdState = 1;
+        }
+      }
+      // Frequency identified in kHz
+      freqPer = 38400/period;
+      #ifdef USE_UART
+        Serial.print(freqPer);
+        Serial.print(" ");
+        Serial.print(period);
+        Serial.print(" ");
+        Serial.print(thresh);
+        Serial.print(" ");
+        Serial.print(maxAdc);
+        Serial.print(" ");
+        Serial.println(minAdc);
+      #endif
+      
+      if (freqPer > 60 && freqPer < 350 ) { 
+        module.setDisplayToDecNumber(freqPer,0,false);
+      }
+  
+  //    if (freqPer > 1000 && freqPer < 8000) {
+  //      
+  //      for (int i = 0; i < BUF_LENGTH; i++) {
+  //        Serial.print(dataBuffer[i]);
+  //        Serial.print(", ");
+  //      }
+  //      Serial.println(" ");
+  //    }
+      maxAdc = 0;
+      minAdc = 255;
+      ready = 0;
+    };
+}

@@ -2,14 +2,12 @@
 
 // назначим ножки для управления индикатором: данные - pin 8, синхра - pin 9 и строб pin 10
 TM1638 module(8, 9, 10);
-unsigned long a=1;
 
 #define USE_UART
 
-#define BUF_LENGTH              512
-#define MIN_MAX_START_DIFF      150
-#define FREQ_DIFF_COEFF         3
-#define PROTECTION_PAUSE        50
+#define MIN_MAX_START_DIFF      150     //разница между минимумом и максимумом показаний АЦП с которой стартуем измерение частоты
+#define FREQ_DIFF_COEFF         3       //коэффициент преобразования ошибки по частоте в шаги мотора
+#define PROTECTION_PAUSE        50      //защитная пауза между новыми измерением и последним шагом мотора
 
 //Константы частот нот
 #define NOTE_e  329.63
@@ -77,42 +75,51 @@ unsigned long a=1;
 #define STEP_MOTOR_FREQ_UP      0
 #define STEP_MOTOR_FREQ_DW      1
 
-//Биты состояния частей программы
-#define STATE_SHOW_FREQ         1
-
 #define ON                      1
 #define OFF                     0
 
+//квант времени основного цикла (в миллисекундах)
 #define TICK_INTERVAL           100
 
-//data storage variables
-byte dataBuffer[BUF_LENGTH];
-int index = 0;//current storage index
-byte ready = 0;
-
-byte maxAdc = 0, minAdc = 255;
-
-float maxFreq = 0;
-float minFreq = 0;
-float note = 0;
-
-char indicatorBuffer[10];
-
-boolean showFreq = true;
-
-byte keys, oldKeys;
-word leds = 0;
-
-unsigned long prevMillis = 0, currMillis = 0;
-
+//время засветки всех сегментов индикатора при старте (в тиках)
 #define FLASH_TIME    10
 
 #define ALL_LEDS_ON   0xff
 #define ALL_LEDS_OFF  0
 
+//буфер под запись данных с АЦП
+#define BUF_LENGTH              512
+byte dataBuffer[BUF_LENGTH];
+int index = 0;                //индекс текущей записи АЦП в буфер
+boolean ready = false;        //флаг готовности данных с АЦП для вычисления частоты
+
+//переменные для хранения максимального и минимального значения АЦП
+byte maxAdc = 0, minAdc = 255;
+
+//переменные для хранения пределов реальной частоты ноты
+float maxFreq = 0;
+float minFreq = 0;
+//частота ноты которую сейчас настраиваем
+float note = 0;
+
+//буфер под формирования сообщений на индикаторе
+char indicatorBuffer[10];
+
+//флаг только показа частоты, без вращения мотора
+boolean showFreq = true;
+
+//переменные для меню (отслеживание нажатия клавиш и состояние светодиодов)
+byte keys, oldKeys;
+word leds = 0;
+
+//счетчики для высчитывания кванта времени основного меню
+unsigned long prevMillis = 0, currMillis = 0;
+
+//таймер для засветки индикатора на старте
 byte flashTimer = 0;
 
-boolean toggle1 = 0;
+//переменные для прерывания таймера 1 обслуживающего шаговый мотор
+boolean toggle = 0;
 word steps = 0;
 word protectionPause = 0;
 boolean turnCompleted = true;
@@ -125,7 +132,7 @@ void setup(){
   pinMode(STEP_MOTOR_DIR_PIN, OUTPUT);
 
   #ifdef USE_UART
-    Serial.begin(9600);
+    Serial.begin(115200);
   #endif
   
   cli();//disable interrupts
@@ -193,14 +200,14 @@ ISR(TIMER1_COMPA_vect) {//timer1 control of step motor
       digitalWrite(STEP_MOTOR_ENABLE_PIN, STEP_MOTOR_OFF);
   } else {
     if (steps != 0) {
-      if (toggle1) {
+      if (toggle) {
         digitalWrite(STEP_MOTOR_PULSE_PIN, HIGH);
-        toggle1 = 0;
+        toggle = 0;
   
         steps--;
       } else {
         digitalWrite(STEP_MOTOR_PULSE_PIN, LOW);
-        toggle1 = 1;
+        toggle = 1;
       }
 
       protectionPause = PROTECTION_PAUSE;

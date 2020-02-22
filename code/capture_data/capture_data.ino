@@ -102,6 +102,9 @@ float minFreq = 0;
 //частота ноты которую сейчас настраиваем
 float note = 0;
 
+//переменная для мигания точки при завершении измерений
+boolean measureDotToggle = false;
+
 //буфер под формирования сообщений на индикаторе
 char indicatorBuffer[10];
 
@@ -137,7 +140,7 @@ void setup(){
   
   cli();//отключаем прерывания
   
-  //set up continuous sampling of analog pin 0 at 38.5kHz
+  //конфигурируем постоянное измерение на частоте 38.5 кГц
  
   //инициализация регистров АЦП
   ADCSRA = 0;
@@ -146,7 +149,7 @@ void setup(){
   ADMUX |= (1 << REFS0); //установка опорного напряжения АЦП
   ADMUX |= (1 << ADLAR); //выравниваем показания АЦП влево чтобы читать только старшие 8 бит из ADCH
   
-  ADCSRA |= (1 << ADPS2) | (1 << ADPS0);  //частота тактирования АЦП идет через предделитель на 32 - 16 МГц / 32 = 500 КГц
+  ADCSRA |= (1 << ADPS2) | (1 << ADPS0);  //частота тактирования АЦП идет через предделитель на 32 - 16 МГц / 32 = 500 кГц
   ADCSRA |= (1 << ADATE);                 //включаем автоперезапуск
   ADCSRA |= (1 << ADIE);                  //включаем прерывание АЦП
   ADCSRA |= (1 << ADEN);                  //включаем АЦП
@@ -376,21 +379,12 @@ void calcFreq() {
   
       for(i=0; i < BUF_LENGTH; i++)
       {
-        // Autocorrelation
+        // Автокорреляция
         sumOld = sum;
         sum = 0;
         for(k=0; k < BUF_LENGTH-i; k++) sum += (dataBuffer[k]-128)*(dataBuffer[k+i]-128);
-      /*  // RX8 [h=43] @1Key1 @0Key1
-        Serial.print("C");
-        Serial.write((rawData[i]-128)>>8);
-        Serial.write((rawData[i]-128)&0xff); */
         
-      /*  // RX8 [h=43] @1Key1 @0Key1
-        Serial.print("C");
-        Serial.write(sum>>8);
-        Serial.write(sum&0xff); */
-        
-        // Peak Detect State Machine
+        // автомат пикового детектирования
         if (pdState == 2 && (sum-sumOld) <= 0) 
         {
           period = i;
@@ -402,14 +396,16 @@ void calcFreq() {
           pdState = 1;
         }
       }
-      // Frequency identified in kHz
+      //высчисляем частоту в кГц
       freqPer = 38400/period;
-      
+
       if (showFreq) {
-        module.setDisplayToDecNumber(freqPer,0,false);
+        measureDotToggle ^= true;
+        module.setDisplayToDecNumber(freqPer, measureDotToggle, false);
       } else {
         if (freqPer > minFreq && freqPer < maxFreq ) { 
-          module.setDisplayToDecNumber(freqPer,0,false);
+          measureDotToggle ^= true;
+          module.setDisplayToDecNumber(freqPer, measureDotToggle, false);
           if (turnCompleted) {
             if (freqPer > note) {
               stps = (freqPer - note) * FREQ_DIFF_COEFF;

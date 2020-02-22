@@ -39,7 +39,7 @@ unsigned long a=1;
 #define BUTTON_S5               16
 #define BUTTON_S6               32
 #define BUTTON_FREQ             64
-#define BUTTON_UART             128
+#define BUTTON_DIR             128
 
 //Номера светодиодов
 #define LED_BIT_S1              0
@@ -49,7 +49,7 @@ unsigned long a=1;
 #define LED_BIT_S5              4
 #define LED_BIT_S6              5
 #define LED_BIT_FREQ            6
-#define LED_BIT_UART            7
+#define LED_BIT_DIR            7
 
 //Маски светодиодов
 #define LED_MASK_S1             1
@@ -59,7 +59,7 @@ unsigned long a=1;
 #define LED_MASK_S5             16
 #define LED_MASK_S6             32
 #define LED_MASK_FREQ           64
-#define LED_MASK_UART           128
+#define LED_MASK_DIR           128
 
 //Ножки управления шаговым мотором
 #define STEP_MOTOR_ENABLE_PIN   4
@@ -73,8 +73,8 @@ unsigned long a=1;
 #define STEP_MOTOR_LEFT         1
 
 //Биты состояния частей программы
-#define STATE_UART_MESSAGES     1
-#define STATE_SHOW_FREQ         2
+#define STATE_DIR_MESSAGES     1
+#define STATE_SHOW_FREQ        2
 
 #define ON                      1
 #define OFF                     0
@@ -113,7 +113,7 @@ void setup(){
   
   sei();//enable interrupts
 
-  module.setLEDs(0); //switch off all LEDs
+  module.setLEDs(LED_MASK_FREQ); //switch off all LEDs
 }
 
 ISR(ADC_vect) {//when new ADC value ready
@@ -137,7 +137,7 @@ float maxFreq;
 float minFreq;
 char indicatorBuffer[10];
 
-byte state;
+byte state = STATE_SHOW_FREQ;
 
 byte keys, oldKeys;
 word leds = 0;
@@ -165,7 +165,7 @@ void loop(){
     } else if (flashTimer < FLASH_TIME) {
       flashTimer++;
     } else if(flashTimer == FLASH_TIME) {
-      module.setLEDs(ALL_LEDS_OFF);
+      module.setLEDs(LED_MASK_FREQ);
       module.setDisplayToString("        ", ALL_LEDS_OFF);
       flashTimer++;
     } else {
@@ -181,65 +181,73 @@ void menu() {
   keys = module.getButtons();
   
   if (keys & BUTTON_S1) {
+    state &= ~STATE_SHOW_FREQ;
+
     maxFreq = NOTE_e_MAX;
     minFreq = NOTE_e_MIN;
     
-    leds &= LED_MASK_FREQ | LED_MASK_UART;
+    leds &= LED_MASK_DIR;
     leds |= LED_MASK_S1;
     edit = true;
   } else if (keys & BUTTON_S2) {
+    state &= ~STATE_SHOW_FREQ;
+
     maxFreq = NOTE_B_MAX;
     minFreq = NOTE_B_MIN;
 
-    leds &= LED_MASK_FREQ | LED_MASK_UART;
+    leds &= LED_MASK_DIR;
     leds |= LED_MASK_S2;
     edit = true;
   } else if (keys & BUTTON_S3) {
+    state &= ~STATE_SHOW_FREQ;
+
     maxFreq = NOTE_G_MAX;
     minFreq = NOTE_G_MIN;
 
-    leds &= LED_MASK_FREQ | LED_MASK_UART;
+    leds &= LED_MASK_DIR;
     leds |= LED_MASK_S3;
     edit = true;
   } else if (keys & BUTTON_S4) {
+    state &= ~STATE_SHOW_FREQ;
+
     maxFreq = NOTE_D_MAX;
     minFreq = NOTE_D_MIN;
 
-    leds &= LED_MASK_FREQ | LED_MASK_UART;
+    leds &= LED_MASK_DIR;
     leds |= LED_MASK_S4;
     edit = true;
   } else if (keys & BUTTON_S5) {
+    state &= ~STATE_SHOW_FREQ;
+
     maxFreq = NOTE_A_MAX;
     minFreq = NOTE_A_MIN;
 
-    leds &= LED_MASK_FREQ | LED_MASK_UART;
+    leds &= LED_MASK_DIR;
     leds |= LED_MASK_S5;
     edit = true;
   } else if (keys & BUTTON_S6) {
+    state &= ~STATE_SHOW_FREQ;
+
     maxFreq = NOTE_E_MAX;
     minFreq = NOTE_E_MIN;
 
-    leds &= LED_MASK_FREQ | LED_MASK_UART;
+    leds &= LED_MASK_DIR;
     leds |= LED_MASK_S6;
     edit = true;
-  } else if ((keys & BUTTON_FREQ) != 0 && (oldKeys & BUTTON_FREQ) == 0) {
+  } else if (keys & BUTTON_FREQ) {
+    state |= STATE_SHOW_FREQ;
 
-    state ^= STATE_SHOW_FREQ;
-
-    if (state & STATE_SHOW_FREQ) {
-      leds |= LED_MASK_FREQ;
-    } else {
-      leds &= ~LED_MASK_FREQ;
-    }
+    leds &= LED_MASK_DIR;
+    leds |= LED_MASK_FREQ;
      edit = true;
- } else if ((keys & BUTTON_UART) != 0 && (oldKeys & BUTTON_UART) == 0) {
+ } else if ((keys & BUTTON_DIR) != 0 && (oldKeys & BUTTON_DIR) == 0) {
 
-    state ^= STATE_UART_MESSAGES;
+    state ^= STATE_DIR_MESSAGES;
 
-    if (state & STATE_UART_MESSAGES) {
-      leds |= LED_MASK_UART;
+    if (state & STATE_DIR_MESSAGES) {
+      leds |= LED_MASK_DIR;
     } else {
-      leds &= ~LED_MASK_UART;
+      leds &= ~LED_MASK_DIR;
     }
     edit = true;
   }

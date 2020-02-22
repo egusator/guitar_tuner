@@ -119,62 +119,62 @@ unsigned long prevMillis = 0, currMillis = 0;
 byte flashTimer = 0;
 
 //переменные для прерывания таймера 1 обслуживающего шаговый мотор
-boolean toggle = 0;
-word steps = 0;
-word protectionPause = 0;
-boolean turnCompleted = true;
-boolean invertDirection = false;
+boolean toggle = 0;                 //для формирования меандра
+word steps = 0;                     //количество шагов которые осталось произвести
+word protectionPause = 0;           //счетчик для защитной паузы между вращением мотора и следующим измерением
+boolean turnCompleted = true;       //флаг окончания вращения мотора
+boolean invertDirection = false;    //флаг необходимости инверсии направления вращения (если колки на разных сторонах головки грифа)
 
 void setup(){
 
-  pinMode(STEP_MOTOR_ENABLE_PIN, OUTPUT);
+  pinMode(STEP_MOTOR_ENABLE_PIN, OUTPUT); //ноги управлением шаговым мотором работают как выходы
   pinMode(STEP_MOTOR_PULSE_PIN, OUTPUT);
   pinMode(STEP_MOTOR_DIR_PIN, OUTPUT);
 
   #ifdef USE_UART
-    Serial.begin(115200);
+    Serial.begin(115200); //инициализируем последовательный порт на скорость 115200
   #endif
   
-  cli();//disable interrupts
+  cli();//отключаем прерывания
   
   //set up continuous sampling of analog pin 0 at 38.5kHz
  
-  //clear ADCSRA and ADCSRB registers
+  //инициализация регистров АЦП
   ADCSRA = 0;
   ADCSRB = 0;
   
-  ADMUX |= (1 << REFS0); //set reference voltage
-  ADMUX |= (1 << ADLAR); //left align the ADC value- so we can read highest 8 bits from ADCH register only
+  ADMUX |= (1 << REFS0); //установка опорного напряжения АЦП
+  ADMUX |= (1 << ADLAR); //выравниваем показания АЦП влево чтобы читать только старшие 8 бит из ADCH
   
-  ADCSRA |= (1 << ADPS2) | (1 << ADPS0); //set ADC clock with 32 prescaler- 16mHz/32=500kHz
-  ADCSRA |= (1 << ADATE); //enable auto trigger
-  ADCSRA |= (1 << ADIE); //enable interrupts when measurement complete
-  ADCSRA |= (1 << ADEN); //enable ADC
-  ADCSRA |= (1 << ADSC); //start ADC measurements
+  ADCSRA |= (1 << ADPS2) | (1 << ADPS0);  //частота тактирования АЦП идет через предделитель на 32 - 16 МГц / 32 = 500 КГц
+  ADCSRA |= (1 << ADATE);                 //включаем автоперезапуск
+  ADCSRA |= (1 << ADIE);                  //включаем прерывание АЦП
+  ADCSRA |= (1 << ADEN);                  //включаем АЦП
+  ADCSRA |= (1 << ADSC);                  //запускаем первое преобразование
 
-  //set timer1 interrupt at 1Hz
-  TCCR1A = 0;// set entire TCCR1A register to 0
-  TCCR1B = 0;// same for TCCR1B
-  TCNT1  = 0;//initialize counter value to 0
-  // set compare match register for 1hz increments
-  OCR1A = 156;// = (16*10^6) / (1*1024) - 1 (must be <65536)
-  // turn on CTC mode
+  //Установить прерывание таймера ~100 Гц
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1  = 0;     //устанавливаем 0 в счетчик
+  //настраиваем компаратор на константу для 100 Гц частоты
+  OCR1A = 155;// = (16*10^6) / (100*1024) - 1 (must be <65536)
+  // включаем CTC режим
   TCCR1B |= (1 << WGM12);
-  // Set CS10 and CS12 bits for 1024 prescaler
+  //установить биты CS10 и CS12 для предделителя на 1024 
   TCCR1B |= (1 << CS12) | (1 << CS10);  
-  // enable timer compare interrupt
+  //включить прерывание компаратора таймера 1
   TIMSK1 |= (1 << OCIE1A);
   
-  sei();//enable interrupts
+  sei();//включаем все прерывания
 
-  module.setLEDs(LED_MASK_FREQ); //switch off all LEDs
+  module.setLEDs(LED_MASK_FREQ); //выключить все светодиоды
 }
 
-ISR(ADC_vect) {//when new ADC value ready
+ISR(ADC_vect) {//прерывание по готовности одного измерения
 
-  byte adc = ADCH;//get value from A0
+  byte adc = ADCH;//берем показания с канала A0
   
-  if (ready == 0) {
+  if (ready == false) {
     if (maxAdc < adc) {
       maxAdc = adc;
     }
@@ -189,13 +189,13 @@ ISR(ADC_vect) {//when new ADC value ready
       
       if (index == BUF_LENGTH) {
         index = 0;
-        ready = 1;
+        ready = true;
       }
     }
   }
 }
 
-ISR(TIMER1_COMPA_vect) {//timer1 control of step motor
+ISR(TIMER1_COMPA_vect) {//timer1 управление шаговым двигателем
   if (showFreq) {
       digitalWrite(STEP_MOTOR_ENABLE_PIN, STEP_MOTOR_OFF);
   } else {
@@ -365,7 +365,7 @@ void calcFreq() {
 
   word stps;
   
-    if (ready == 1) {
+    if (ready) {
   
       sum = 0;
       sumOld = 0;
@@ -462,7 +462,6 @@ void calcFreq() {
           
         maxAdc = 0;
         minAdc = 255;
-        ready = 0;
-
+        ready = false;
     };
 }

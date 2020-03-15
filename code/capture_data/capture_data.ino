@@ -5,9 +5,11 @@ TM1638 module(8, 9, 10);
 
 #define USE_UART
 
-#define MIN_MAX_START_DIFF      150     //разница между минимумом и максимумом показаний АЦП с которой стартуем измерение частоты
-#define FREQ_DIFF_COEFF         3       //коэффициент преобразования ошибки по частоте в шаги мотора
-#define PROTECTION_PAUSE        50      //защитная пауза между новыми измерением и последним шагом мотора
+#define MIN_MAX_START_DIFF            150     //разница между минимумом и максимумом показаний АЦП с которой стартуем измерение частоты
+#define FREQ_DIFF_COEFF               3       //коэффициент преобразования ошибки по частоте в шаги мотора
+#define PROTECTION_PAUSE              50      //защитная пауза между новыми измерением и последним шагом мотора
+#define SHOW_SETPOINT_RANGE_TIME      30      //при установке режима настройки струны - показать максимум и минимум частоты
+#define SHOW_SETPOINT_FREQ_TIME       15      //после показа максимума и минимума - показать саму частоту струны
 
 //Константы частот нот
 #define NOTE_e  329.63
@@ -128,6 +130,8 @@ word protectionPause = 0;           //счетчик для защитной п�
 boolean turnCompleted = true;       //флаг окончания вращения мотора
 boolean invertDirection = false;    //флаг необходимости инверсии направления вращения (если колки на разных сторонах головки грифа)
 
+byte showSetpointCnt = 0;
+
 void setup(){
 
   pinMode(STEP_MOTOR_ENABLE_PIN, OUTPUT); //ноги управлением шаговым мотором работают как выходы
@@ -244,10 +248,44 @@ void loop(){
       module.setDisplayToString("        ", ALL_LEDS_OFF);
       flashTimer++;
     } else {
-      menu();
-      calcFreq();
+      if (showSetpointCnt != 0) {
+        if (showSetpointCnt == SHOW_SETPOINT_RANGE_TIME) {
+          showSetpointRange();
+        } else if (showSetpointCnt == SHOW_SETPOINT_FREQ_TIME) {
+          showSetpointFreq();
+        } else if (showSetpointCnt == 1) {
+          showMinuses();
+        }
+        showSetpointCnt--;
+      } else {
+        menu();
+        calcFreq();
+      }
     }
   }
+}
+
+void showSetpointRange() {
+  dtostrf(maxFreq, 3, 0, indicatorBuffer);
+  dtostrf(minFreq, 3, 0, indicatorBuffer + 5);
+  indicatorBuffer[3] = ' ';
+  indicatorBuffer[4] = ' ';
+
+  module.setDisplayToString(indicatorBuffer);
+}
+
+void showSetpointFreq() {
+  dtostrf(note, 3, 2, indicatorBuffer + 2);
+  indicatorBuffer[0] = ' ';
+  indicatorBuffer[1] = ' ';
+  indicatorBuffer[5] = ' ';
+  indicatorBuffer[6] = ' ';
+  indicatorBuffer[7] = ' ';
+  module.setDisplayToString(indicatorBuffer);
+}
+
+void showMinuses() {
+  module.setDisplayToString("--------");
 }
 
 void menu() {
@@ -265,6 +303,7 @@ void menu() {
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S1;
     edit = true;
+    showSetpointCnt = SHOW_SETPOINT_RANGE_TIME;
   } else if (keys & BUTTON_S2) {
     showFreq = false;
 
@@ -275,6 +314,7 @@ void menu() {
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S2;
     edit = true;
+    showSetpointCnt = SHOW_SETPOINT_RANGE_TIME;
   } else if (keys & BUTTON_S3) {
     showFreq = false;
 
@@ -285,6 +325,7 @@ void menu() {
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S3;
     edit = true;
+    showSetpointCnt = SHOW_SETPOINT_RANGE_TIME;
   } else if (keys & BUTTON_S4) {
     showFreq = false;
 
@@ -295,6 +336,7 @@ void menu() {
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S4;
     edit = true;
+    showSetpointCnt = SHOW_SETPOINT_RANGE_TIME;
   } else if (keys & BUTTON_S5) {
     showFreq = false;
 
@@ -305,6 +347,7 @@ void menu() {
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S5;
     edit = true;
+    showSetpointCnt = SHOW_SETPOINT_RANGE_TIME;
   } else if (keys & BUTTON_S6) {
     showFreq = false;
 
@@ -315,6 +358,7 @@ void menu() {
     leds &= LED_MASK_DIR;
     leds |= LED_MASK_S6;
     edit = true;
+    showSetpointCnt = SHOW_SETPOINT_RANGE_TIME;
   } else if (keys & BUTTON_FREQ) {
     showFreq = true;
 
@@ -336,17 +380,7 @@ void menu() {
 
   if (edit) {
     module.setLEDs(leds);
-
-//    dtostrf(maxFreq, 3, 0, indicatorBuffer);
-//    dtostrf(minFreq, 3, 0, indicatorBuffer + 5);
-//    indicatorBuffer[3] = ' ';
-//    indicatorBuffer[4] = ' ';
-//    
-//
-//    module.setDisplayToString(indicatorBuffer);
-
   }
-
 }
 
 void turnMotor (word st, byte dir) {

@@ -1,0 +1,159 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L Amplifier_Operational:TL072 U1
+U 1 1 5E85BE7F
+P 4450 2450
+F 0 "U1" H 4450 2817 50  0000 C CNN
+F 1 "TL072" H 4450 2726 50  0000 C CNN
+F 2 "" H 4450 2450 50  0001 C CNN
+F 3 "http://www.ti.com/lit/ds/symlink/tl071.pdf" H 4450 2450 50  0001 C CNN
+	1    4450 2450
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C1
+U 1 1 5E85D7C6
+P 3550 2350
+F 0 "C1" V 3298 2350 50  0000 C CNN
+F 1 "0.1u" V 3389 2350 50  0000 C CNN
+F 2 "" H 3588 2200 50  0001 C CNN
+F 3 "~" H 3550 2350 50  0001 C CNN
+	1    3550 2350
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R R1
+U 1 1 5E85E9B9
+P 3800 2600
+F 0 "R1" H 3870 2646 50  0000 L CNN
+F 1 "100K" H 3870 2555 50  0000 L CNN
+F 2 "" V 3730 2600 50  0001 C CNN
+F 3 "~" H 3800 2600 50  0001 C CNN
+	1    3800 2600
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R2
+U 1 1 5E85EFB1
+P 4100 3000
+F 0 "R2" H 4170 3046 50  0000 L CNN
+F 1 "1K" H 4170 2955 50  0000 L CNN
+F 2 "" V 4030 3000 50  0001 C CNN
+F 3 "~" H 4100 3000 50  0001 C CNN
+	1    4100 3000
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R3
+U 1 1 5E85F2FD
+P 4550 2800
+F 0 "R3" V 4343 2800 50  0000 C CNN
+F 1 "100K" V 4434 2800 50  0000 C CNN
+F 2 "" V 4480 2800 50  0001 C CNN
+F 3 "~" H 4550 2800 50  0001 C CNN
+	1    4550 2800
+	0    1    1    0   
+$EndComp
+$Comp
+L Connector_Generic:Conn_01x01 J2
+U 1 1 5E860325
+P 5500 2450
+F 0 "J2" H 5580 2492 50  0000 L CNN
+F 1 "К АЦП" H 5580 2401 50  0000 L CNN
+F 2 "" H 5500 2450 50  0001 C CNN
+F 3 "~" H 5500 2450 50  0001 C CNN
+	1    5500 2450
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5E860B98
+P 2600 2650
+F 0 "#PWR?" H 2600 2400 50  0001 C CNN
+F 1 "GND" H 2605 2477 50  0000 C CNN
+F 2 "" H 2600 2650 50  0001 C CNN
+F 3 "" H 2600 2650 50  0001 C CNN
+	1    2600 2650
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5E865823
+P 4100 3300
+F 0 "#PWR?" H 4100 3050 50  0001 C CNN
+F 1 "GND" H 4105 3127 50  0000 C CNN
+F 2 "" H 4100 3300 50  0001 C CNN
+F 3 "" H 4100 3300 50  0001 C CNN
+	1    4100 3300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3700 2350 3800 2350
+Wire Wire Line
+	3800 2350 3800 2450
+Wire Wire Line
+	3800 2350 4150 2350
+Connection ~ 3800 2350
+Wire Wire Line
+	4150 2550 4100 2550
+Wire Wire Line
+	4100 2550 4100 2800
+Wire Wire Line
+	4100 3150 4100 3300
+Wire Wire Line
+	4400 2800 4100 2800
+Connection ~ 4100 2800
+Wire Wire Line
+	4100 2800 4100 2850
+Wire Wire Line
+	4700 2800 4800 2800
+Wire Wire Line
+	4800 2800 4800 2450
+Wire Wire Line
+	4800 2450 4750 2450
+Wire Wire Line
+	4800 2450 5300 2450
+Connection ~ 4800 2450
+Wire Wire Line
+	3400 2350 2800 2350
+$Comp
+L Connector:AudioJack2_Ground J1
+U 1 1 5E873244
+P 2600 2350
+F 0 "J1" H 2632 2675 50  0000 C CNN
+F 1 " " H 2632 2584 50  0000 C CNN
+F 2 "" H 2600 2350 50  0001 C CNN
+F 3 "~" H 2600 2350 50  0001 C CNN
+	1    2600 2350
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2600 2550 2600 2650
+$Comp
+L power:GND #PWR?
+U 1 1 5E878747
+P 3800 2850
+F 0 "#PWR?" H 3800 2600 50  0001 C CNN
+F 1 "GND" H 3805 2677 50  0000 C CNN
+F 2 "" H 3800 2850 50  0001 C CNN
+F 3 "" H 3800 2850 50  0001 C CNN
+	1    3800 2850
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3800 2750 3800 2850
+$EndSCHEMATC
